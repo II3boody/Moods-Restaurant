@@ -26,17 +26,29 @@ def create_order(data: OrderCreate, db: DB, user: CurrentUser):
     cart = db.scalars(select(CartItem).where(CartItem.user_id == user.id)).all()
     if not cart:
         raise HTTPException(400, "Cart is empty")
-    unavailable = [c.product.name for c in cart if not c.product.is_available]
-    if unavailable:
-        raise HTTPException(400, f"Not available anymore: {', '.join(unavailable)}")
 
-    subtotal = sum((Decimal(c.product.price) * c.quantity for c in cart), Decimal("0"))
+    problems, lines = [], []
+    for c in cart:
+        if c.product:
+            if not c.product.is_available:
+                problems.append(c.product.name)
+            lines.append(OrderItem(product_id=c.product_id, product_name=c.product.name,
+                                   unit_price=c.product.price, quantity=c.quantity))
+        else:
+            b = c.bundle
+            if not b.is_live or any(not i.product.is_available for i in b.items):
+                problems.append(b.name)
+            lines.append(OrderItem(bundle_id=b.id, product_name=b.name,
+                                   unit_price=b.price, quantity=c.quantity))
+    if problems:
+        raise HTTPException(400, f"Not available anymore: {', '.join(problems)}")
+
+    subtotal = sum((Decimal(l.unit_price) * l.quantity for l in lines), Decimal("0"))
     discount, total = apply_discount(subtotal, best_discount_percent(db))
     order = Order(user_id=user.id, delivery_address=data.delivery_address, phone=data.phone,
                   payment_method=data.payment_method, notes=data.notes,
                   subtotal=subtotal, discount=discount, total=total)
-    order.items = [OrderItem(product_id=c.product_id, product_name=c.product.name,
-                             unit_price=c.product.price, quantity=c.quantity) for c in cart]
+    order.items = lines
     db.add(order)
     db.execute(delete(CartItem).where(CartItem.user_id == user.id))
     db.commit()

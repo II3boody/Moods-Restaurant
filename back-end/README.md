@@ -57,3 +57,13 @@ CRUD على `/categories` `/products` `/festivals`, `PUT /about`,
 - الداتابيز SQLite للتطوير. للبروودكشن غيّر `DATABASE_URL` لـ PostgreSQL، ويفضل تضيف Alembic للـ migrations.
 - الأسعار بتتخزن Numeric ومبنية على `OrderItem` snapshot عشان تغيير السعر بعدين ميغيرش الأوردرات القديمة.
 - التست: `pytest -q`
+
+
+## تحديث v2: أقسام فرعية، عروض، أكتر طلباً
+- **أقسام فرعية:** `POST /categories` بـ `parent_id`. الشجرة جاهزة من `GET /categories/tree`. فلترة المنتجات بالقسم الأب بتشمل الفرعي.
+- **المنتج:** `details` (تفاصيل طويلة) + `description` + `is_popular` + `is_recommended` + `is_available`. التعديل بـ `PATCH /products/{id}`، رفع الصورة بـ `POST /products/{id}/image` (متخزنة في الداتابيز، 2MB كحد أقصى).
+- **أكتر طلباً:** `GET /products/best-sellers?days=30`، محسوبة أوتوماتيك من الأوردرات.
+- **العروض (باكدجات):** `/bundles` (admin يعمل برجر + بطاطس بسعر واحد). العميل بيضيفها للكارت بـ `bundle_id`.
+- **الكارت:** التعديل والحذف بقى بـ `item_id` مش `product_id`.
+- **Home:** `categories` (الأب بس وبـ `show_on_home`)، `popular_products`، `recommended_products`، `best_sellers`، `offers`، `festivals`، `latest_reviews`، `about`.
+- **ترقية الداتابيز الموجودة على Neon:** شغّل `python -m app.seed` ثم محتوى `migration_v2.sql` في SQL Editor.

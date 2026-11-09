@@ -53,3 +53,23 @@ def test_full_flow():
 
         # home aggregated endpoint
         assert "popular_products" in c.get("/api/v1/home").json()
+
+        # offers (bundle): admin creates, customer buys
+        b = c.post("/api/v1/bundles", headers=sa, json={
+            "name": "Combo", "price": 50,
+            "items": [{"product_id": pid, "quantity": 1}, {"product_id": pid, "quantity": 1}]})
+        assert b.status_code == 201, b.text
+        assert b.json()["items"][0]["quantity"] == 2  # نفس المنتج اتدمج
+        assert len(c.get("/api/v1/bundles").json()) >= 1
+        cart = c.post("/api/v1/cart/items", json={"bundle_id": b.json()["id"]}, headers=user).json()
+        assert cart["items"][0]["bundle"]["name"] == "Combo"
+        assert c.post("/api/v1/orders", headers=user, json={
+            "delivery_address": "Qena, Street 1", "phone": "01000000000"}).status_code == 201
+
+        # best sellers (محسوبة من الأوردرات) + sub-category
+        assert len(c.get("/api/v1/products/best-sellers").json()) >= 1
+        parent = c.get("/api/v1/categories").json()[0]["id"]
+        sub = c.post("/api/v1/categories", headers=sa, json={"name": "Chicken", "parent_id": parent})
+        assert sub.status_code == 201
+        assert any(t["children"] for t in c.get("/api/v1/categories/tree").json())
+

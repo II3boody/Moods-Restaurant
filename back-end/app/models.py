@@ -2,8 +2,8 @@ import enum
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import (Boolean, Date, DateTime, Enum, ForeignKey, Integer, Numeric,
-                        String, Text, UniqueConstraint)
+from sqlalchemy import (Boolean, Date, DateTime, Enum, ForeignKey, Integer, LargeBinary,
+                        Numeric, String, Text, UniqueConstraint)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -76,6 +76,10 @@ class Category(Base):
     image: Mapped[str | None] = mapped_column(String(500))
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    show_on_home: Mapped[bool] = mapped_column(Boolean, default=True)
+    # قسم فرعي: parent_id = id القسم الأب (مستويين بس)
+    parent_id: Mapped[int | None] = mapped_column(
+        ForeignKey("categories.id", ondelete="SET NULL"), index=True)
 
     products: Mapped[list["Product"]] = relationship(back_populates="category")
 
@@ -88,24 +92,77 @@ class Product(Base):
     name: Mapped[str] = mapped_column(String(150), index=True)
     description: Mapped[str | None] = mapped_column(Text)
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    details: Mapped[str | None] = mapped_column(Text)  # تفاصيل طويلة: مكونات، حجم، ...
     image: Mapped[str | None] = mapped_column(String(500))
+    image_data: Mapped[bytes | None] = mapped_column(LargeBinary, deferred=True)
+    image_type: Mapped[str | None] = mapped_column(String(50))
     is_popular: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_recommended: Mapped[bool] = mapped_column(Boolean, default=False)
     is_available: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     category: Mapped[Category] = relationship(back_populates="products")
 
 
+class Bundle(Base):
+    """باكدج / عرض: مجموعة منتجات بسعر واحد أرخص من شرائهم لوحدهم."""
+    __tablename__ = "bundles"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(150))
+    description: Mapped[str | None] = mapped_column(Text)
+    image: Mapped[str | None] = mapped_column(String(500))
+    image_data: Mapped[bytes | None] = mapped_column(LargeBinary, deferred=True)
+    image_type: Mapped[str | None] = mapped_column(String(50))
+    price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    start_date: Mapped[date | None] = mapped_column(Date)
+    end_date: Mapped[date | None] = mapped_column(Date)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+    items: Mapped[list["BundleItem"]] = relationship(
+        back_populates="bundle", cascade="all, delete-orphan", order_by="BundleItem.id")
+
+    @property
+    def original_price(self) -> Decimal:
+        return sum((Decimal(i.product.price) * i.quantity for i in self.items), Decimal("0"))
+
+    @property
+    def savings(self) -> Decimal:
+        return max(self.original_price - Decimal(self.price), Decimal("0"))
+
+    @property
+    def is_live(self) -> bool:
+        today = date.today()
+        return (self.is_active and (self.start_date is None or self.start_date <= today)
+                and (self.end_date is None or self.end_date >= today))
+
+
+class BundleItem(Base):
+    __tablename__ = "bundle_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    bundle_id: Mapped[int] = mapped_column(ForeignKey("bundles.id", ondelete="CASCADE"), index=True)
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="RESTRICT"))
+    quantity: Mapped[int] = mapped_column(Integer, default=1)
+
+    bundle: Mapped[Bundle] = relationship(back_populates="items")
+    product: Mapped[Product] = relationship()
+
+
 class CartItem(Base):
+    """سطر الكارت: يا منتج (product_id) يا باقة (bundle_id)، واحد منهم بس."""
     __tablename__ = "cart_items"
-    __table_args__ = (UniqueConstraint("user_id", "product_id"),)
+    __table_args__ = (UniqueConstraint("user_id", "product_id"), UniqueConstraint("user_id", "bundle_id"))
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    product_id: Mapped[int] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"))
+    product_id: Mapped[int | None] = mapped_column(ForeignKey("products.id", ondelete="CASCADE"))
+    bundle_id: Mapped[int | None] = mapped_column(ForeignKey("bundles.id", ondelete="CASCADE"))
     quantity: Mapped[int] = mapped_column(Integer, default=1)
 
-    product: Mapped[Product] = relationship()
+    product: Mapped[Product | None] = relationship()
+    bundle: Mapped[Bundle | None] = relationship()
 
 
 class Order(Base):
@@ -134,6 +191,7 @@ class OrderItem(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     order_id: Mapped[int] = mapped_column(ForeignKey("orders.id", ondelete="CASCADE"), index=True)
     product_id: Mapped[int | None] = mapped_column(ForeignKey("products.id", ondelete="SET NULL"))
+    bundle_id: Mapped[int | None] = mapped_column(ForeignKey("bundles.id", ondelete="SET NULL"))
     product_name: Mapped[str] = mapped_column(String(150))
     unit_price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     quantity: Mapped[int] = mapped_column(Integer)

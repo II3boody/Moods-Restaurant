@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Generic, TypeVar
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
 from app.models import ComplaintStatus, OrderStatus, PaymentMethod, Role
 
@@ -89,6 +89,8 @@ class CategoryIn(BaseModel):
     image: str | None = None
     sort_order: int = 0
     is_active: bool = True
+    show_on_home: bool = True
+    parent_id: int | None = None
 
 
 class CategoryUpdate(BaseModel):
@@ -97,19 +99,27 @@ class CategoryUpdate(BaseModel):
     image: str | None = None
     sort_order: int | None = None
     is_active: bool | None = None
+    show_on_home: bool | None = None
+    parent_id: int | None = None
 
 
 class CategoryOut(ORM, CategoryIn):
     id: int
 
 
+class CategoryTree(CategoryOut):
+    children: list[CategoryOut] = []
+
+
 class ProductIn(BaseModel):
     category_id: int
     name: str = Field(min_length=1, max_length=150)
     description: str | None = None
+    details: str | None = None
     price: float = Field(gt=0)
     image: str | None = None
     is_popular: bool = False
+    is_recommended: bool = False
     is_available: bool = True
 
 
@@ -117,9 +127,11 @@ class ProductUpdate(BaseModel):
     category_id: int | None = None
     name: str | None = Field(default=None, min_length=1, max_length=150)
     description: str | None = None
+    details: str | None = None
     price: float | None = Field(default=None, gt=0)
     image: str | None = None
     is_popular: bool | None = None
+    is_recommended: bool | None = None
     is_available: bool | None = None
 
 
@@ -128,16 +140,73 @@ class ProductOut(ORM):
     category_id: int
     name: str
     description: str | None
+    details: str | None
     price: float
     image: str | None
     is_popular: bool
+    is_recommended: bool
     is_available: bool
+
+
+# ---------- Bundles (offers / packages) ----------
+class BundleItemIn(BaseModel):
+    product_id: int
+    quantity: int = Field(default=1, ge=1, le=20)
+
+
+class BundleIn(BaseModel):
+    name: str = Field(min_length=2, max_length=150)
+    description: str | None = None
+    image: str | None = None
+    price: float = Field(gt=0, description="سعر الباقة ككل")
+    is_active: bool = True
+    start_date: date | None = None
+    end_date: date | None = None
+    items: list[BundleItemIn] = Field(min_length=1)
+
+
+class BundleUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=150)
+    description: str | None = None
+    image: str | None = None
+    price: float | None = Field(default=None, gt=0)
+    is_active: bool | None = None
+    start_date: date | None = None
+    end_date: date | None = None
+    items: list[BundleItemIn] | None = Field(default=None, min_length=1)
+
+
+class BundleItemOut(ORM):
+    product: ProductOut
+    quantity: int
+
+
+class BundleOut(ORM):
+    id: int
+    name: str
+    description: str | None
+    image: str | None
+    price: float
+    original_price: float
+    savings: float
+    is_active: bool
+    is_live: bool
+    start_date: date | None
+    end_date: date | None
+    items: list[BundleItemOut]
 
 
 # ---------- Cart ----------
 class CartAddIn(BaseModel):
-    product_id: int
+    product_id: int | None = None
+    bundle_id: int | None = None
     quantity: int = Field(default=1, ge=1, le=50)
+
+    @model_validator(mode="after")
+    def exactly_one(self):
+        if (self.product_id is None) == (self.bundle_id is None):
+            raise ValueError("Send exactly one of product_id or bundle_id")
+        return self
 
 
 class CartUpdateIn(BaseModel):
@@ -145,7 +214,9 @@ class CartUpdateIn(BaseModel):
 
 
 class CartItemOut(BaseModel):
-    product: ProductOut
+    id: int
+    product: ProductOut | None = None
+    bundle: BundleOut | None = None
     quantity: int
     line_total: float
 
@@ -168,6 +239,7 @@ class OrderCreate(BaseModel):
 
 class OrderItemOut(ORM):
     product_id: int | None
+    bundle_id: int | None
     product_name: str
     unit_price: float
     quantity: int
@@ -288,8 +360,11 @@ class AboutContent(BaseModel):
 
 
 class HomeOut(BaseModel):
-    popular_products: list[ProductOut]
     categories: list[CategoryOut]
+    popular_products: list[ProductOut]
+    recommended_products: list[ProductOut]
+    best_sellers: list[ProductOut]
+    offers: list[BundleOut]
     festivals: list[FestivalOut]
     latest_reviews: list[ReviewOut]
     about: AboutContent

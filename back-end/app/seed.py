@@ -6,7 +6,7 @@ from sqlalchemy import select
 from app.core.config import settings
 from app.core.database import SessionLocal
 from app.core.security import hash_password
-from app.models import Category, Product, Role, SiteContent, User
+from app.models import Bundle, BundleItem, Category, Product, Role, SiteContent, User
 
 CATEGORIES = ["Sandwiches", "Meals", "Sides", "Desserts", "Seyami"]
 
@@ -49,8 +49,16 @@ def seed() -> None:
             cats = {n: Category(name=n, sort_order=i) for i, n in enumerate(CATEGORIES)}
             db.add_all(cats.values())
             db.flush()
-            db.add_all(Product(name=n, price=p, category_id=cats[c].id, image=img, is_popular=True)
-                       for n, p, c, img in PRODUCTS)
+            prods = {n: Product(name=n, price=p, category_id=cats[c].id, image=img, is_popular=True)
+                     for n, p, c, img in PRODUCTS}
+            db.add_all(prods.values())
+            db.flush()
+            # باكدج تجريبي: Classic + Big Fries بسعر أقل من شرائهم لوحدهم (89 + 30 = 119)
+            combo = Bundle(name="Classic Combo", price=99,
+                           description="Classic sandwich + Big Fries")
+            combo.items = [BundleItem(product_id=prods["Classic"].id, quantity=1),
+                           BundleItem(product_id=prods["Big Fries"].id, quantity=1)]
+            db.add(combo)
 
         if not db.get(SiteContent, "about"):
             db.add(SiteContent(key="about", value=json.dumps(ABOUT, ensure_ascii=False)))

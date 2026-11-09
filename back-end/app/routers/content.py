@@ -7,6 +7,7 @@ from sqlalchemy import func, select
 
 from app.core.deps import DB, AdminUser
 from app.models import (Category, ContactMessage, Festival, Product, Review, SiteContent)
+from app.services.catalog import best_sellers, live_bundles
 from app.schemas import (AboutContent, ContactIn, ContactOut, FestivalIn, FestivalOut,
                          FestivalUpdate, HomeOut, Message, Page)
 
@@ -129,11 +130,17 @@ def update_about(data: AboutContent, db: DB, _: AdminUser):
 @home_router.get("", response_model=HomeOut, summary="Everything the home page needs in ONE request")
 def home(db: DB):
     today = date.today()
+    available = Product.is_available.is_(True)
     return HomeOut(
+        categories=db.scalars(select(Category).where(
+            Category.is_active.is_(True), Category.show_on_home.is_(True),
+            Category.parent_id.is_(None)).order_by(Category.sort_order, Category.id)).all(),
         popular_products=db.scalars(select(Product).where(
-            Product.is_popular.is_(True), Product.is_available.is_(True)).limit(12)).all(),
-        categories=db.scalars(select(Category).where(Category.is_active.is_(True))
-                              .order_by(Category.sort_order)).all(),
+            Product.is_popular.is_(True), available).limit(12)).all(),
+        recommended_products=db.scalars(select(Product).where(
+            Product.is_recommended.is_(True), available).limit(12)).all(),
+        best_sellers=best_sellers(db, limit=10, days=30),
+        offers=live_bundles(db),
         festivals=db.scalars(select(Festival).where(
             Festival.is_active.is_(True), Festival.end_date >= today)).all(),
         latest_reviews=db.scalars(select(Review).where(Review.is_approved.is_(True))

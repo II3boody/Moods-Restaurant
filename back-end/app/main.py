@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
-from app.routers import admin, auth, cart, complaints, content, menu, orders, reviews
+from app.routers import admin, auth, bundles, cart, complaints, content, menu, orders, reviews
 
 DESCRIPTION = """
 Backend لمطعم **MOODS Restaurant & Cafe**.
@@ -37,7 +37,7 @@ if not os.getenv("VERCEL"):
     app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
 
 API = "/api/v1"
-for r in (auth.router, menu.categories_router, menu.products_router, cart.router, orders.router,
+for r in (auth.router, menu.categories_router, menu.products_router, bundles.router, cart.router, orders.router,
           reviews.router, complaints.router, content.contact_router, content.festivals_router,
           content.about_router, content.home_router, admin.router):
     app.include_router(r, prefix=API)
