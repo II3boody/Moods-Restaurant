@@ -55,3 +55,12 @@ def seed() -> None:
         if not db.get(SiteContent, "about"):
             db.add(SiteContent(key="about", value=json.dumps(ABOUT, ensure_ascii=False)))
         db.commit()
+
+
+if __name__ == "__main__":
+    # شغّله مرة واحدة من جهازك على قاعدة Neon:  python -m app.seed
+    from app.core.database import Base, engine
+
+    Base.metadata.create_all(bind=engine)
+    seed()
+    print("Tables created and seed data inserted.")
