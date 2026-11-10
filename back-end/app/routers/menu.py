@@ -5,6 +5,7 @@ from app.core.deps import DB, AdminUser
 from app.models import BundleItem, CartItem, Category, Product, utcnow
 from app.schemas import (CategoryIn, CategoryOut, CategoryTree, CategoryUpdate, Message, Page,
                          ProductIn, ProductOut, ProductUpdate)
+from app.services import media
 from app.services.catalog import best_sellers
 from app.services.images import read_image
 
@@ -183,9 +184,11 @@ def delete_product(product_id: int, db: DB, _: AdminUser):
     if db.scalar(select(func.count()).select_from(BundleItem).where(BundleItem.product_id == product_id)):
         raise HTTPException(409, "Product is part of an offer/bundle. Remove it from the bundle first "
                                  "(or just set is_available=false)")
+    old_image = p.image
     db.query(CartItem).filter(CartItem.product_id == product_id).delete()
     db.delete(p)
     db.commit()
+    media.destroy_by_url(old_image)
     return Message(message="Product deleted")
 
 
@@ -196,10 +199,17 @@ def upload_product_image(product_id: int, db: DB, _: AdminUser, file: UploadFile
     p = db.get(Product, product_id)
     if not p:
         raise HTTPException(404, "Product not found")
-    p.image_data, p.image_type = read_image(file)
-    p.image = f"/api/v1/products/{p.id}/image?v={int(utcnow().timestamp())}"
+    data, content_type = read_image(file)
+    old_image = p.image
+    if media.enabled():
+        p.image = media.upload(data, "products")
+        p.image_data = p.image_type = None
+    else:  # fallback: تخزين في الداتابيز
+        p.image_data, p.image_type = data, content_type
+        p.image = f"/api/v1/products/{p.id}/image?v={int(utcnow().timestamp())}"
     db.commit()
     db.refresh(p)
+    media.destroy_by_url(old_image)  # يمسح الصورة القديمة من Cloudinary لو كانت هناك
     return p
 
 
@@ -217,7 +227,9 @@ def delete_product_image(product_id: int, db: DB, _: AdminUser):
     p = db.get(Product, product_id)
     if not p:
         raise HTTPException(404, "Product not found")
+    old_image = p.image
     p.image = p.image_data = p.image_type = None
     db.commit()
     db.refresh(p)
+    media.destroy_by_url(old_image)
     return p

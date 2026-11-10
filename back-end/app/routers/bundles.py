@@ -5,6 +5,7 @@ from sqlalchemy import select
 from app.core.deps import DB, AdminUser
 from app.models import Bundle, BundleItem, CartItem, Product, utcnow
 from app.schemas import BundleIn, BundleOut, BundleUpdate, Message
+from app.services import media
 from app.services.catalog import live_bundles
 from app.services.images import read_image
 
@@ -80,9 +81,11 @@ def delete_offer(bundle_id: int, db: DB, _: AdminUser):
     b = db.get(Bundle, bundle_id)
     if not b:
         raise HTTPException(404, "Offer not found")
+    old_image = b.image
     db.query(CartItem).filter(CartItem.bundle_id == bundle_id).delete()
     db.delete(b)
     db.commit()
+    media.destroy_by_url(old_image)
     return Message(message="Offer deleted")
 
 
@@ -91,10 +94,17 @@ def upload_image(bundle_id: int, db: DB, _: AdminUser, file: UploadFile = File(.
     b = db.get(Bundle, bundle_id)
     if not b:
         raise HTTPException(404, "Offer not found")
-    b.image_data, b.image_type = read_image(file)
-    b.image = f"/api/v1/bundles/{b.id}/image?v={int(utcnow().timestamp())}"
+    data, content_type = read_image(file)
+    old_image = b.image
+    if media.enabled():
+        b.image = media.upload(data, "bundles")
+        b.image_data = b.image_type = None
+    else:  # fallback: تخزين في الداتابيز
+        b.image_data, b.image_type = data, content_type
+        b.image = f"/api/v1/bundles/{b.id}/image?v={int(utcnow().timestamp())}"
     db.commit()
     db.refresh(b)
+    media.destroy_by_url(old_image)
     return b
 
 

@@ -31,6 +31,12 @@ class Settings(BaseSettings):
 
     UPLOAD_DIR: str = "uploads"
 
+    # Cloudinary (لو فاضيين، الصور بتتخزن في الداتابيز زي الأول)
+    CLOUDINARY_CLOUD_NAME: str = ""
+    CLOUDINARY_API_KEY: str = ""
+    CLOUDINARY_API_SECRET: str = ""
+    CLOUDINARY_FOLDER: str = "moods"
+
 
 @lru_cache
 def get_settings() -> Settings:
