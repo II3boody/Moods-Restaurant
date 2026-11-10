@@ -1,15 +1,18 @@
 
-import { useTranslations } from "next-intl";
-import LanguageSwitcher from "../Components/LanguageSwitcher/LanguageSwitcher";
+import { getHomeData } from "@/services/home";
+import Hero from "../Components/Hero/Hero";
 
-export default function HomePage() {
-  const t = useTranslations("HomePage");
+
+export default async function HomePage() {
+  try {
+    await getHomeData();
+  } catch (error) {
+    console.error("Failed to fetch homepage data:", error);
+  }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4">
-      <h1 className="text-3xl font-bold">{t("title")}</h1>
-      <p>{t("description")}</p>
-      <LanguageSwitcher />
+    <main>
+      <Hero />
     </main>
   );
 }
