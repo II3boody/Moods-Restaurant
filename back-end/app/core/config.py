@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -36,6 +37,15 @@ class Settings(BaseSettings):
     CLOUDINARY_API_KEY: str = ""
     CLOUDINARY_API_SECRET: str = ""
     CLOUDINARY_FOLDER: str = "moods"
+
+    @field_validator("CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET",
+                     "CLOUDINARY_FOLDER", mode="before")
+    @classmethod
+    def _clean_cloudinary(cls, v):
+        """بيشيل المسافات والـ tab والـ newline وعلامات التنصيص اللي بتتنسخ بالغلط مع القيمة."""
+        if isinstance(v, str):
+            return v.strip().strip("\"'").strip().strip("/")
+        return v
 
 
 @lru_cache
