@@ -114,16 +114,23 @@ def get_about(db: DB):
     return load_about(db)
 
 
-@about_router.put("", response_model=AboutContent, summary="Edit About page content (admin)")
+@about_router.put("", response_model=AboutContent,
+                  summary="Edit About page content, English and/or Arabic (admin)")
+@about_router.patch("", response_model=AboutContent,
+                    summary="Edit About page content, English and/or Arabic (admin)")
 def update_about(data: AboutContent, db: DB, _: AdminUser):
+    """Only the fields you send are changed; omitted fields (e.g. story_ar) keep their stored value."""
+    merged = load_about(db).model_dump()
+    merged.update(data.model_dump(exclude_unset=True))
+    result = AboutContent(**merged)
+    payload = json.dumps(result.model_dump(), ensure_ascii=False)
     row = db.get(SiteContent, "about")
-    payload = json.dumps(data.model_dump(), ensure_ascii=False)
     if row:
         row.value = payload
     else:
         db.add(SiteContent(key="about", value=payload))
     db.commit()
-    return data
+    return result
 
 
 # ---------------- Home ----------------

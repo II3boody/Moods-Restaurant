@@ -118,7 +118,7 @@ def list_products(
         children = select(Category.id).where(Category.parent_id == category_id)
         q = q.where(or_(Product.category_id == category_id, Product.category_id.in_(children)))
     if search:
-        q = q.where(Product.name.ilike(f"%{search}%"))
+        q = q.where(or_(Product.name.ilike(f"%{search}%"), Product.name_ar.ilike(f"%{search}%")))
     if popular is not None:
         q = q.where(Product.is_popular.is_(popular))
     if recommended is not None:

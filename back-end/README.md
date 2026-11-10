@@ -67,3 +67,19 @@ CRUD على `/categories` `/products` `/festivals`, `PUT /about`,
 - **الكارت:** التعديل والحذف بقى بـ `item_id` مش `product_id`.
 - **Home:** `categories` (الأب بس وبـ `show_on_home`)، `popular_products`، `recommended_products`، `best_sellers`، `offers`، `festivals`، `latest_reviews`، `about`.
 - **ترقية الداتابيز الموجودة على Neon:** شغّل `python -m app.seed` ثم محتوى `migration_v2.sql` في SQL Editor.
+
+## تحديث v3: دعم العربي والإنجليزي (Bilingual)
+الحقول الإنجليزية زي ما هي، وأضفنا حقول `_ar` اختيارية (nullable) فمفيش حاجة قديمة بتتكسر.
+
+| العنصر | الحقول الجديدة |
+|---|---|
+| Product | `name_ar`, `description_ar`, `details_ar` |
+| Category | `name_ar`, `description_ar` |
+| Bundle (Offer) | `name_ar`, `description_ar` |
+| About | `story_ar`, `mission_ar` (باقي الحقول مشتركة) |
+
+- `GET /home` والقوايم والـ tree كلهم بيرجّعوا الحقول الجديدة (`null` لو لسه مفيش ترجمة).
+- في الفرونت: `item.name_ar ?? item.name` لو اللغة عربي.
+- البحث في `GET /products?search=` بيشتغل بالعربي والإنجليزي.
+- `PUT/PATCH /about` بيغيّر الحقول المبعوتة بس، والباقي بيفضل زي ما هو.
+- **المايجريشن:** `python -m app.migrate_bilingual` أو `migration_v3_bilingual.sql` على Neon. شغّله **قبل** نشر الكود.

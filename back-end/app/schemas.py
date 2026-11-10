@@ -85,17 +85,26 @@ class ActiveUpdate(BaseModel):
 # ---------- Menu ----------
 class CategoryIn(BaseModel):
     name: str = Field(min_length=1, max_length=100)
+    name_ar: str | None = Field(default=None, max_length=100, description="الاسم بالعربي (اختياري)")
     description: str | None = None
+    description_ar: str | None = Field(default=None, description="الوصف بالعربي (اختياري)")
     image: str | None = None
     sort_order: int = 0
     is_active: bool = True
     show_on_home: bool = True
     parent_id: int | None = None
 
+    model_config = ConfigDict(json_schema_extra={"examples": [{
+        "name": "Sandwiches", "name_ar": "ساندويتشات",
+        "description": "Freshly grilled sandwiches", "description_ar": "ساندويتشات مشوية طازجة",
+        "image": None, "sort_order": 0, "is_active": True, "show_on_home": True, "parent_id": None}]})
+
 
 class CategoryUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=100)
+    name_ar: str | None = Field(default=None, max_length=100)
     description: str | None = None
+    description_ar: str | None = None
     image: str | None = None
     sort_order: int | None = None
     is_active: bool | None = None
@@ -105,6 +114,10 @@ class CategoryUpdate(BaseModel):
 
 class CategoryOut(ORM, CategoryIn):
     id: int
+    model_config = ConfigDict(json_schema_extra={"examples": [{
+        "id": 1, "name": "Sandwiches", "name_ar": "ساندويتشات",
+        "description": "Freshly grilled sandwiches", "description_ar": "ساندويتشات مشوية طازجة",
+        "image": None, "sort_order": 0, "is_active": True, "show_on_home": True, "parent_id": None}]})
 
 
 class CategoryTree(CategoryOut):
@@ -114,20 +127,32 @@ class CategoryTree(CategoryOut):
 class ProductIn(BaseModel):
     category_id: int
     name: str = Field(min_length=1, max_length=150)
+    name_ar: str | None = Field(default=None, max_length=150, description="الاسم بالعربي (اختياري)")
     description: str | None = None
+    description_ar: str | None = Field(default=None, description="الوصف بالعربي (اختياري)")
     details: str | None = None
+    details_ar: str | None = Field(default=None, description="التفاصيل بالعربي (اختياري)")
     price: float = Field(gt=0)
     image: str | None = None
     is_popular: bool = False
     is_recommended: bool = False
     is_available: bool = True
+    model_config = ConfigDict(json_schema_extra={"examples": [{
+        "category_id": 1,
+        "name": "Beef Burger", "name_ar": "برجر لحم",
+        "description": "Grilled beef burger", "description_ar": "برجر لحم مشوي",
+        "details": "150g beef, cheddar, lettuce, tomato", "details_ar": "150 جم لحم بقري، جبنة شيدر، خس، طماطم",
+        "price": 120, "is_popular": False, "is_recommended": True, "is_available": True}]})
 
 
 class ProductUpdate(BaseModel):
     category_id: int | None = None
     name: str | None = Field(default=None, min_length=1, max_length=150)
+    name_ar: str | None = Field(default=None, max_length=150)
     description: str | None = None
+    description_ar: str | None = None
     details: str | None = None
+    details_ar: str | None = None
     price: float | None = Field(default=None, gt=0)
     image: str | None = None
     is_popular: bool | None = None
@@ -139,13 +164,23 @@ class ProductOut(ORM):
     id: int
     category_id: int
     name: str
+    name_ar: str | None = None
     description: str | None
+    description_ar: str | None = None
     details: str | None
+    details_ar: str | None = None
     price: float
     image: str | None
     is_popular: bool
     is_recommended: bool
     is_available: bool
+    model_config = ConfigDict(json_schema_extra={"examples": [{
+        "id": 7, "category_id": 1,
+        "name": "Beef Burger", "name_ar": "برجر لحم",
+        "description": "Grilled beef burger", "description_ar": "برجر لحم مشوي",
+        "details": "150g beef, cheddar, lettuce, tomato", "details_ar": "150 جم لحم بقري، جبنة شيدر، خس، طماطم",
+        "price": 120.0, "image": "/api/v1/products/7/image?v=1767225600",
+        "is_popular": False, "is_recommended": True, "is_available": True}]})
 
 
 # ---------- Bundles (offers / packages) ----------
@@ -156,18 +191,27 @@ class BundleItemIn(BaseModel):
 
 class BundleIn(BaseModel):
     name: str = Field(min_length=2, max_length=150)
+    name_ar: str | None = Field(default=None, max_length=150, description="الاسم بالعربي (اختياري)")
     description: str | None = None
+    description_ar: str | None = Field(default=None, description="الوصف بالعربي (اختياري)")
     image: str | None = None
     price: float = Field(gt=0, description="سعر الباقة ككل")
     is_active: bool = True
     start_date: date | None = None
     end_date: date | None = None
     items: list[BundleItemIn] = Field(min_length=1)
+    model_config = ConfigDict(json_schema_extra={"examples": [{
+        "name": "Burger Combo", "name_ar": "كومبو برجر",
+        "description": "Burger + fries + drink", "description_ar": "برجر + بطاطس + مشروب",
+        "price": 149, "is_active": True, "start_date": None, "end_date": None,
+        "items": [{"product_id": 7, "quantity": 1}, {"product_id": 8, "quantity": 1}]}]})
 
 
 class BundleUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=2, max_length=150)
+    name_ar: str | None = Field(default=None, max_length=150)
     description: str | None = None
+    description_ar: str | None = None
     image: str | None = None
     price: float | None = Field(default=None, gt=0)
     is_active: bool | None = None
@@ -184,7 +228,9 @@ class BundleItemOut(ORM):
 class BundleOut(ORM):
     id: int
     name: str
+    name_ar: str | None = None
     description: str | None
+    description_ar: str | None = None
     image: str | None
     price: float
     original_price: float
@@ -194,6 +240,16 @@ class BundleOut(ORM):
     start_date: date | None
     end_date: date | None
     items: list[BundleItemOut]
+    model_config = ConfigDict(json_schema_extra={"examples": [{
+        "id": 3, "name": "Burger Combo", "name_ar": "كومبو برجر",
+        "description": "Burger + fries + drink", "description_ar": "برجر + بطاطس + مشروب",
+        "image": None, "price": 149.0, "original_price": 175.0, "savings": 26.0,
+        "is_active": True, "is_live": True, "start_date": None, "end_date": None,
+        "items": [{"quantity": 1, "product": {
+            "id": 7, "category_id": 1, "name": "Beef Burger", "name_ar": "برجر لحم",
+            "description": "Grilled beef burger", "description_ar": "برجر لحم مشوي",
+            "details": None, "details_ar": None, "price": 120.0, "image": None,
+            "is_popular": False, "is_recommended": True, "is_available": True}}]}]})
 
 
 # ---------- Cart ----------
@@ -349,7 +405,9 @@ class FestivalOut(ORM, FestivalIn):
 # ---------- About / Home / Stats ----------
 class AboutContent(BaseModel):
     story: str = ""
+    story_ar: str | None = None
     mission: str = ""
+    mission_ar: str | None = None
     address: str = ""
     phone: str = ""
     email: str = ""
@@ -357,6 +415,13 @@ class AboutContent(BaseModel):
     facebook: str = ""
     instagram: str = ""
     map_embed_url: str = ""
+    model_config = ConfigDict(json_schema_extra={"examples": [{
+        "story": "MOODS: your spot for fast food, juices & desserts.",
+        "story_ar": "مودز: مكانك للوجبات السريعة والعصائر والحلويات.",
+        "mission": "Save the moment.", "mission_ar": "احفظ اللحظة.",
+        "address": "Qena, Egypt", "phone": "01000000000", "email": "moods.restaurant.cafe@gmail.com",
+        "working_hours": "10:00 - 00:00", "facebook": "https://www.facebook.com/moodsqena",
+        "instagram": "https://www.instagram.com/moodsqena", "map_embed_url": ""}]})
 
 
 class HomeOut(BaseModel):
@@ -368,6 +433,26 @@ class HomeOut(BaseModel):
     festivals: list[FestivalOut]
     latest_reviews: list[ReviewOut]
     about: AboutContent
+    model_config = ConfigDict(json_schema_extra={"examples": [{
+        "categories": [{"id": 1, "name": "Sandwiches", "name_ar": "ساندويتشات",
+                        "description": "Freshly grilled sandwiches", "description_ar": "ساندويتشات مشوية طازجة",
+                        "image": None, "sort_order": 0, "is_active": True, "show_on_home": True, "parent_id": None}],
+        "popular_products": [{"id": 7, "category_id": 1, "name": "Beef Burger", "name_ar": "برجر لحم",
+                              "description": "Grilled beef burger", "description_ar": "برجر لحم مشوي",
+                              "details": "150g beef, cheddar", "details_ar": "150 جم لحم بقري، جبنة شيدر",
+                              "price": 120.0, "image": None, "is_popular": True,
+                              "is_recommended": False, "is_available": True}],
+        "recommended_products": [], "best_sellers": [],
+        "offers": [{"id": 3, "name": "Burger Combo", "name_ar": "كومبو برجر",
+                    "description": "Burger + fries", "description_ar": "برجر + بطاطس", "image": None,
+                    "price": 149.0, "original_price": 175.0, "savings": 26.0, "is_active": True,
+                    "is_live": True, "start_date": None, "end_date": None, "items": []}],
+        "festivals": [], "latest_reviews": [],
+        "about": {"story": "MOODS: your spot for fast food, juices & desserts.",
+                  "story_ar": "مودز: مكانك للوجبات السريعة والعصائر والحلويات.",
+                  "mission": "Save the moment.", "mission_ar": "احفظ اللحظة.",
+                  "address": "Qena, Egypt", "phone": "", "email": "moods.restaurant.cafe@gmail.com",
+                  "working_hours": "", "facebook": "", "instagram": "", "map_embed_url": ""}}]})
 
 
 class StatsOut(BaseModel):

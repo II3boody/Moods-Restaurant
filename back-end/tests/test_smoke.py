@@ -1,5 +1,7 @@
 import os
 
+if os.path.exists("test_moods.db"):  # fresh DB on every run
+    os.remove("test_moods.db")
 os.environ["DATABASE_URL"] = "sqlite:///./test_moods.db"
 os.environ["UPLOAD_DIR"] = "test_uploads"
 
@@ -73,3 +75,52 @@ def test_full_flow():
         assert sub.status_code == 201
         assert any(t["children"] for t in c.get("/api/v1/categories/tree").json())
 
+
+
+def test_bilingual_content():
+    with TestClient(app) as c:
+        sa = login(c, "superadmin@moods.com", "ChangeMe123!")
+        api = "/api/v1"
+
+        # category: English only still works (Arabic nullable), then add Arabic via PATCH
+        cat = c.post(f"{api}/categories", headers=sa, json={"name": "Grill"})
+        assert cat.status_code == 201 and cat.json()["name_ar"] is None
+        cid = cat.json()["id"]
+        r = c.patch(f"{api}/categories/{cid}", headers=sa, json={"name_ar": "مشويات", "description_ar": "مشويات طازجة"})
+        assert r.json()["name_ar"] == "مشويات" and r.json()["name"] == "Grill"
+
+        # product: both languages on POST, partial PATCH keeps the rest
+        p = c.post(f"{api}/products", headers=sa, json={
+            "category_id": cid, "name": "Kebab", "name_ar": "كباب", "description": "Grilled",
+            "description_ar": "مشوي", "details": "200g", "details_ar": "200 جم", "price": 150})
+        assert p.status_code == 201, p.text
+        pid = p.json()["id"]
+        assert p.json()["details_ar"] == "200 جم"
+        r = c.patch(f"{api}/products/{pid}", headers=sa, json={"name_ar": "كباب مشوي"})
+        assert r.json()["name_ar"] == "كباب مشوي" and r.json()["details_ar"] == "200 جم"
+        assert r.json()["name"] == "Kebab"
+        # search works in Arabic too
+        assert c.get(f"{api}/products", params={"search": "كباب"}).json()["total"] == 1
+
+        # bundle
+        b = c.post(f"{api}/bundles", headers=sa, json={
+            "name": "Kebab Deal", "name_ar": "عرض الكباب", "description_ar": "كباب + بطاطس",
+            "price": 100, "items": [{"product_id": pid, "quantity": 1}]})
+        assert b.status_code == 201, b.text
+        assert b.json()["name_ar"] == "عرض الكباب" and b.json()["items"][0]["product"]["name_ar"] == "كباب مشوي"
+
+        # about: Arabic is merged, English is untouched, omitted fields are kept
+        before = c.get(f"{api}/about").json()
+        assert before["story_ar"] is None or isinstance(before["story_ar"], str)
+        r = c.put(f"{api}/about", headers=sa, json={"story_ar": "قصتنا", "mission_ar": "رسالتنا"})
+        assert r.status_code == 200 and r.json()["story"] == before["story"]
+        r = c.put(f"{api}/about", headers=sa, json={"phone": "0100"})
+        assert r.json()["story_ar"] == "قصتنا" and r.json()["phone"] == "0100"
+
+        # home returns the bilingual fields
+        home = c.get(f"{api}/home").json()
+        assert home["about"]["story_ar"] == "قصتنا" and home["about"]["mission_ar"] == "رسالتنا"
+        assert "name_ar" in home["categories"][0]
+        assert any(o["name_ar"] == "عرض الكباب" for o in home["offers"])
+        if home["popular_products"]:
+            assert "name_ar" in home["popular_products"][0]
