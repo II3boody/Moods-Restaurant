@@ -4,7 +4,6 @@ import logging
 import re
 import time
 
-import httpx
 from fastapi import HTTPException
 
 from app.core.config import settings
@@ -30,6 +29,8 @@ def _sign(params: dict) -> str:
 
 def upload(source: bytes | str, folder: str) -> str:
     """بيرفع صورة (bytes أو لينك صورة موجودة على النت) وبيرجع الـ secure_url الكامل."""
+    import httpx  # lazy: التطبيق يفضل شغال حتى لو المكتبة مش متثبتة (الرفع بس هو اللي يفشل)
+
     params = {"folder": f"{settings.CLOUDINARY_FOLDER}/{folder}", "timestamp": int(time.time())}
     data = {**params, "api_key": settings.CLOUDINARY_API_KEY, "signature": _sign(params)}
     files = None
@@ -63,6 +64,8 @@ def destroy_by_url(url: str | None) -> None:
     public_id = _public_id(url) if enabled() else None
     if not public_id:
         return
+    import httpx
+
     params = {"public_id": public_id, "timestamp": int(time.time())}
     data = {**params, "api_key": settings.CLOUDINARY_API_KEY, "signature": _sign(params)}
     try:
