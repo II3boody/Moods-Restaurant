@@ -88,3 +88,17 @@ def set_active(user_id: int, data: ActiveUpdate, db: DB, me: AdminUser):
     db.commit()
     db.refresh(user)
     return user
+
+
+@router.get("/media-status", summary="Where do uploaded images go? (no secrets are shown)")
+def media_status(_: AdminUser):
+    from app.services import media
+
+    return {
+        "storage": "cloudinary" if media.enabled() else "database",
+        "cloudinary_enabled": media.enabled(),
+        "cloud_name": media._cloud() or None,
+        "api_key_set": bool(media._key()),
+        "api_secret_set": bool(media._secret()),
+        "folder": media._folder(),
+    }
