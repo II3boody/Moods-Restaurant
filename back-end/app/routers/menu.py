@@ -1,4 +1,5 @@
 from fastapi import APIRouter, File, HTTPException, Query, Response, UploadFile
+from fastapi.responses import RedirectResponse
 from sqlalchemy import func, or_, select
 
 from app.core.deps import DB, AdminUser
@@ -216,10 +217,14 @@ def upload_product_image(product_id: int, db: DB, _: AdminUser, file: UploadFile
 @products_router.get("/{product_id}/image", summary="Product image file", response_class=Response)
 def get_product_image(product_id: int, db: DB):
     p = db.get(Product, product_id)
-    if not p or not p.image_data:
-        raise HTTPException(404, "No uploaded image")
-    return Response(p.image_data, media_type=p.image_type or "image/jpeg",
-                    headers={"Cache-Control": "public, max-age=86400"})
+    if not p:
+        raise HTTPException(404, "Product not found")
+    if p.image_data:  # صورة متخزنة في الداتابيز (النظام القديم)
+        return Response(p.image_data, media_type=p.image_type or "image/jpeg",
+                        headers={"Cache-Control": "public, max-age=86400"})
+    if p.image and p.image.startswith(("http://", "https://")):  # Cloudinary / أي لينك خارجي
+        return RedirectResponse(p.image, status_code=307, headers={"Cache-Control": "public, max-age=3600"})
+    raise HTTPException(404, "This product has no image")
 
 
 @products_router.delete("/{product_id}/image", response_model=ProductOut, summary="Remove product image")
