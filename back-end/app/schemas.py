@@ -179,7 +179,7 @@ class ProductOut(ORM):
         "name": "Beef Burger", "name_ar": "برجر لحم",
         "description": "Grilled beef burger", "description_ar": "برجر لحم مشوي",
         "details": "150g beef, cheddar, lettuce, tomato", "details_ar": "150 جم لحم بقري، جبنة شيدر، خس، طماطم",
-        "price": 120.0, "image": "/api/v1/products/7/image?v=1767225600",
+        "price": 120.0, "image": "https://res.cloudinary.com/your-cloud/image/upload/v1/moods/products/beef-burger.jpg",
         "is_popular": False, "is_recommended": True, "is_available": True}]})
 
 
