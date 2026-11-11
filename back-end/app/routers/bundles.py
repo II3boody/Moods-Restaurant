@@ -1,5 +1,6 @@
-"""العروض / الباكدجات: مثلاً برجر + بطاطس + مشروب بسعر واحد أرخص."""
+
 from fastapi import APIRouter, File, HTTPException, Response, UploadFile
+from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 
 from app.core.deps import DB, AdminUser
@@ -111,7 +112,11 @@ def upload_image(bundle_id: int, db: DB, _: AdminUser, file: UploadFile = File(.
 @router.get("/{bundle_id}/image", response_class=Response, summary="Offer image file")
 def get_image(bundle_id: int, db: DB):
     b = db.get(Bundle, bundle_id)
-    if not b or not b.image_data:
-        raise HTTPException(404, "No uploaded image")
-    return Response(b.image_data, media_type=b.image_type or "image/jpeg",
-                    headers={"Cache-Control": "public, max-age=86400"})
+    if not b:
+        raise HTTPException(404, "Offer not found")
+    if b.image_data:
+        return Response(b.image_data, media_type=b.image_type or "image/jpeg",
+                        headers={"Cache-Control": "public, max-age=86400"})
+    if b.image and b.image.startswith(("http://", "https://")):
+        return RedirectResponse(b.image, status_code=307, headers={"Cache-Control": "public, max-age=3600"})
+    raise HTTPException(404, "This offer has no image")
