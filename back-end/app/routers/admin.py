@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import func, select
 
+from app.core.config import settings
 from app.core.deps import DB, AdminUser, SuperAdminUser
 from app.core.security import hash_password
 from app.models import (Complaint, ComplaintStatus, ContactMessage, Order, OrderStatus, Review,
@@ -98,6 +99,11 @@ def media_status(_: AdminUser):
         "storage": "cloudinary" if media.enabled() else "database",
         "cloudinary_enabled": media.enabled(),
         "cloud_name": media._cloud() or None,
+        "cloud_name_length": len(media._cloud()),
+        "cloud_name_valid": bool(media._CLOUD_NAME.fullmatch(media._cloud())),
+        # أي حرف غلط في الاسم (بيظهر كـ U+XXXX عشان الحروف المخفية تبان). مفيش أسرار هنا
+        "cloud_name_bad_characters": sorted({f"U+{ord(c):04X}" for c in settings.CLOUDINARY_CLOUD_NAME
+                                              if not media._CLOUD_NAME.fullmatch(c)}),
         "api_key_set": bool(media._key()),
         "api_secret_set": bool(media._secret()),
         "folder": media._folder(),
