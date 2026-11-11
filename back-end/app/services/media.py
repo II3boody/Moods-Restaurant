@@ -13,21 +13,34 @@ TIMEOUT = 30
 _CLOUD_NAME = re.compile(r"[A-Za-z0-9_-]+")
 
 
+_HIDDEN = re.compile(r"[\u200b-\u200f\u202a-\u202e\u2060\ufeff]")  # zero-width / اتجاه الكتابة
+
+
 def _clean(value: str) -> str:
-    # حماية إضافية فوق الـ validator في config: أي whitespace/tab/newline/تنصيص يتشال
-    return (value or "").strip().strip("\"'").strip()
+    # حماية إضافية فوق الـ validator في config: whitespace/tab/newline/تنصيص/حروف مخفية تتشال
+    return _HIDDEN.sub("", value or "").strip().strip("\"'").strip()
+
+
+def _token(value: str) -> str:
+    # المفتاح والسر مفيهمش أي مسافات خالص
+    return re.sub(r"\s+", "", _clean(value))
 
 
 def _cloud() -> str:
-    return _clean(settings.CLOUDINARY_CLOUD_NAME)
+    # لو اتلصق نص زيادة (Cloud name: xxx أو KEY=xxx أو cloudinary://k:s@xxx) ناخد آخر جزء بس
+    value = _clean(settings.CLOUDINARY_CLOUD_NAME)
+    if re.search(r"[=:@/]", value):
+        parts = [p.strip() for p in re.split(r"[=:@/]+", value) if p.strip()]
+        value = parts[-1] if parts else ""
+    return re.sub(r"\s+", "", value)  # أي مسافة/tab جوه الاسم تتشال (الاسم الصح مفيهوش مسافات)
 
 
 def _key() -> str:
-    return _clean(settings.CLOUDINARY_API_KEY)
+    return _token(settings.CLOUDINARY_API_KEY)
 
 
 def _secret() -> str:
-    return _clean(settings.CLOUDINARY_API_SECRET)
+    return _token(settings.CLOUDINARY_API_SECRET)
 
 
 def _folder() -> str:
