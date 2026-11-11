@@ -1,6 +1,7 @@
+import re
 from functools import lru_cache
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -37,15 +38,31 @@ class Settings(BaseSettings):
     CLOUDINARY_API_KEY: str = ""
     CLOUDINARY_API_SECRET: str = ""
     CLOUDINARY_FOLDER: str = "moods"
+    # بديل: المتغير الرسمي من Cloudinary بالشكل cloudinary://<api_key>:<api_secret>@<cloud_name>
+    CLOUDINARY_URL: str = ""
 
     @field_validator("CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET",
-                     "CLOUDINARY_FOLDER", mode="before")
+                     "CLOUDINARY_FOLDER", "CLOUDINARY_URL", mode="before")
     @classmethod
     def _clean_cloudinary(cls, v):
-        """بيشيل المسافات والـ tab والـ newline وعلامات التنصيص اللي بتتنسخ بالغلط مع القيمة."""
+        """بيشيل المسافات والـ tab والـ newline وعلامات التنصيص والحروف المخفية (zero-width) اللي بتتنسخ مع القيمة."""
         if isinstance(v, str):
+            v = re.sub(r"[\u200b-\u200f\u202a-\u202e\u2060\ufeff]", "", v)
             return v.strip().strip("\"'").strip().strip("/")
         return v
+
+    @model_validator(mode="after")
+    def _fill_from_cloudinary_url(self):
+        """لو CLOUDINARY_URL موجود، بيكمّل منه أي قيمة ناقصة أو اسم cloud غلط."""
+        m = re.fullmatch(r"cloudinary://([^:@/\s]+):([^@/\s]+)@([A-Za-z0-9_-]+)", self.CLOUDINARY_URL or "")
+        if m:
+            if not self.CLOUDINARY_API_KEY:
+                self.CLOUDINARY_API_KEY = m.group(1)
+            if not self.CLOUDINARY_API_SECRET:
+                self.CLOUDINARY_API_SECRET = m.group(2)
+            if not re.fullmatch(r"[A-Za-z0-9_-]+", self.CLOUDINARY_CLOUD_NAME or ""):
+                self.CLOUDINARY_CLOUD_NAME = m.group(3)
+        return self
 
 
 @lru_cache
